@@ -6,6 +6,7 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <pthread.h>
+#include <sys/sem.h>
 
 #include "msg.h"
 #include "serveur2.h"
@@ -19,6 +20,18 @@ int main(){
 		fprintf(stderr, "ECHEC LORS DE LA CREATION DES MSG\n" );
 		exit(0);
 	}
+	
+	//creation du semaphore qui protege
+	int sidAccesServeur=semget(ftok("AccesServeur",1875),1,IPC_CREAT|DROIT);
+	if(sidAccesServeur==-1){
+		fprintf(stderr, "ECHEC LORS DE LA CREATION DE LA PROTECTION DES FILES DE MESSAGES\n" );
+		perror("Probleme:");
+		exit(0);
+	}
+	//init de la valeur du sema
+	semctl(sidAccesServeur,0,SETVAL,1);
+	
+	
 
 	msgbuf msg;
 	int memo=0;
@@ -49,8 +62,9 @@ int main(){
 	printf("Fin Serveur\n");
 
 //destruction msg
-	struct msqid_ds buf;
-	msgctl(msgidE,IPC_RMID,&buf);
-	msgctl(msgidS,IPC_RMID,&buf);
+	msgctl(msgidE,IPC_RMID,NULL);
+	msgctl(msgidS,IPC_RMID,NULL);
+//destruction sema
+	semctl(sidAccesServeur,0,IPC_RMID,NULL);//0 pour le premier semaphore
 	return 0;
 }

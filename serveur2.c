@@ -6,22 +6,41 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <string.h>
+#include <pthread.h>
 
 
 #include "serveur2.h"
 #include "msg.h"
 
-void gestionClient(dataThread d){
+void* gestionClient(void* data){
+	dataThread d= (dataThread)data;
+	static pthread_mutex_t accesMsgS=PTHREAD_MUTEX_INITIALIZER; //protection de l'acces au msg Sserveur
+	
+	printf("Thread %d operationnel\n",d->numThread);
 	msgbuf msg;
 	msg.mtype=1;
+	
 	sprintf(msg.mtext,"%d",d->numThread);
-	int pipeE= mkfifo(msg.mtext,S_IRUSR);
 	
+	//creation pipe nome
+	if( mkfifo(msg.mtext,DROIT)==-1){
+		fprintf(stderr,"Thread %d PROBLEME DE CREATION PIPE N\n",d->numThread);
+	}
 	
+	//acces msg de sortir du serveur
+	pthread_mutex_lock(&accesMsgS);
 	if(msgsnd(d->msgidSortie,&msg,sizeof(msgbuf)-sizeof(long),0)==-1){
 			fprintf(stderr, "ECHEC DE L'ENVOI\n" );
 		}
-	free(d);
+	pthread_mutex_unlock(&accesMsgS);
+	//rendu acces
+
+//fin	
+	printf("Thread %d Fin\n",d->numThread);
+	
+	unlink(msg.mtext);//destruction du pipe
+	free(d);//desalloc de la struc car passer sans ref
+	return NULL;
 }
 
 dataThread initDataThread(){

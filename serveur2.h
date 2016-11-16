@@ -6,7 +6,7 @@
 		int msgidSortie;	//pour envoyer le nom du pipe au client
 	}* dataThread;
 	
-	void gestionClient(dataThread d);
+	void* gestionClient(void* data);
 	dataThread initDataThread();
 
 #endif
