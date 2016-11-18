@@ -14,6 +14,8 @@
 
 int main(){
 	printf("Lancement Serveur\n");
+//lecture config
+	tabConfigData serviceLesser=chargementData();
 //creation msg
 	int msgidE= msgget(ftok("eServeur",1875),IPC_CREAT |DROIT);
 	int msgidS= msgget(ftok("sServeur",1875),IPC_CREAT |DROIT);
@@ -69,9 +71,11 @@ int main(){
 	printf("Fin Serveur\n");
 
 //destruction msg
+	freePile(&pileThread);
 	msgctl(msgidE,IPC_RMID,NULL);
 	msgctl(msgidS,IPC_RMID,NULL);
 //destruction sema
 	semctl(sidAccesServeur,0,IPC_RMID,NULL);//0 pour le premier semaphore
+	freeTabConfigData(&serviceLesser);//free serviceLesser
 	return 0;
 }
