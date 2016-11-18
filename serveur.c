@@ -10,6 +10,7 @@
 
 #include "msg.h"
 #include "serveur2.h"
+#include "pile.h"
 
 int main(){
 	printf("Lancement Serveur\n");
@@ -36,6 +37,7 @@ int main(){
 	msgbuf msg;
 	int memo=0;
 	pthread_t thd;
+	Pile* pileThread = initPile();
 	
 	printf("Serveur Pret\n");
 	
@@ -52,13 +54,18 @@ int main(){
 		d->msgidSortie=msgidS;
 		if(pthread_create(&thd,NULL,gestionClient,(void*)d)!=0){
 			fprintf(stderr, "ECHEC DE CREATION THREAD\n");
+		}else{
+			empiler(pileThread,thd);
 		}
 		memo++;
 				
 	}
 
-	pthread_join(thd,NULL);
 	
+	while(!pileVide(pileThread)){
+		pthread_join(lireTete(pileThread),NULL);
+		depiler(pileThread);
+	}
 	printf("Fin Serveur\n");
 
 //destruction msg

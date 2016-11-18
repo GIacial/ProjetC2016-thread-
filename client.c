@@ -5,8 +5,10 @@
 //include pour msg
 #include <sys/types.h>
 #include <sys/ipc.h>
-#include <sys/msg.h>
-#include <sys/sem.h>
+#include <sys/msg.h>	//msg
+#include <sys/sem.h>   //sem    
+#include <fcntl.h> //open
+
 
 #include "msg.h"
 
@@ -56,7 +58,39 @@ int main(){
 
 	printf("j'ai recu %c\n",msg.mtext[0]);
 	
+	//debut de communication avec le personnel du serveur qui ma pris en charge
+	char sortie[4];
+	strcpy(sortie,msg.mtext);
+	strcat(sortie,"s");
+	
+	//doit etre ouvert dans le meme sens que dans le serveur
+	int deServeur=open(sortie,O_RDONLY);
+	if(deServeur==-1){
+		fprintf(stderr, "ECHEC DE OUVERTURE PIPE %s\n",sortie );
+	}
+	
+	
+	int versServeur=open(msg.mtext,O_WRONLY);
+	if(versServeur==-1){
+		fprintf(stderr, "ECHEC DE OUVERTURE PIPE %s\n",msg.mtext );
+	}
+	
+	//on fait les demande de service
+	int service=0;
+	printf("Service:");
+	scanf("%d",&service);
+	if(write(versServeur ,&service,sizeof(int))==-1){
+		fprintf(stderr, "ECHEC DE LA LECTURE \n" );
+	}
+	
+	if(read(deServeur,&service,sizeof(int))<0){
+		fprintf(stderr, "ECHEC DE LA LECTURE \n" );
+	}
+	
 
+	printf("Recu %d\n",service);
 
+	close(versServeur);
+	close(deServeur);
 	return 0;
 }
