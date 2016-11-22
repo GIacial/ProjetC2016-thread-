@@ -10,5 +10,7 @@
 		char mtext[3];
 		
 	} msgbuf;
+	
+
 
 #endif

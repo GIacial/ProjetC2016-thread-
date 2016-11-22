@@ -24,7 +24,7 @@ struct configData{
 
 void* gestionClient(void* data){
 	dataThread d= (dataThread)data;
-	static pthread_mutex_t accesMsgS=PTHREAD_MUTEX_INITIALIZER; //protection de l'acces au msg Sserveur
+	static pthread_mutex_t accesMsgS = PTHREAD_MUTEX_INITIALIZER; //protection de l'acces au msg Sserveur
 	
 	printf("Thread %d operationnel\n",d->numThread);
 	msgbuf msg;
@@ -98,6 +98,8 @@ dataThread initDataThread(){
 	dataThread r=(dataThread) malloc(sizeof(struct dataThread));
 	r->numThread = -1;
 	r->msgidSortie = -1;
+	r->configLesser = NULL;
+	r->pipesLesser = NULL;
 	return r;
 }
 
@@ -181,9 +183,16 @@ tabConfigData chargementData(){
 
 //------------------------------------------------------------------------------------------------
 tabConfigData initTabConfigData(int nbLesser){
-	tabConfigData r= (tabConfigData)malloc(sizeof(struct tabConfigData));
-	r->nbLesser=nbLesser;
-	r->serviceLesser=(configData*) malloc (sizeof(configData)*(unsigned long)nbLesser);
+	tabConfigData r = (tabConfigData)malloc(sizeof(struct tabConfigData));
+	r->nbLesser = nbLesser;
+	r->serviceLesser = (configData*) malloc (sizeof(configData)*(unsigned long)nbLesser);
+	
+	r->serviceLibre = (bool*) malloc(sizeof(bool)*(unsigned long)nbLesser);
+	for(int i = 0 ; i<nbLesser ; i++){
+		r->serviceLibre[i]=true;
+	}
+	//r->accesTabService = PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_init(&(r->accesTabService),NULL);
 	return r;
 }
 //--------------------------------------------------------------------------------
@@ -194,10 +203,67 @@ void freeTabConfigData(tabConfigData* tab){
 		  freeConfigData(&(tabl->serviceLesser[i]));
 		}
 	}
+	free(tabl->serviceLesser);
+	free(tabl->serviceLibre);
 	free(tabl);
 	*tab=NULL;
 }
 
+//-*---------------------------------------------------------------------------
+
+void afficheTabConfigData(tabConfigData tab){
+	printf("%d\n",tab->nbLesser);
+	
+  for (int i=0 ; i<tab->nbLesser ; i++){
+  	printf("%d ",getNbService(tab->serviceLesser[i]) );
+  	for (int j=0 ; j<getNbService(tab->serviceLesser[i]) ; j++){
+  		printf("%d ",getService(tab->serviceLesser[i],j));
+  	}
+  	printf("\n");
+  }
+}
+
+//-*---------------------------------------------------------------------------
+
+pipeLesser initPipeLesser(int nbLesser){
+	pipeLesser r= (pipeLesser) malloc(sizeof(struct pipeLesser));
+	r->pipesLesser= (int**) malloc((unsigned int)nbLesser*sizeof(int*));
+	r->accesPipe= (pthread_mutex_t*) malloc((unsigned int)nbLesser*sizeof(pthread_mutex_t));
+	
+	for(int i=0 ; i< nbLesser ; i++){
+		r->pipesLesser[i]=(int*)malloc(sizeof(int)*4);
+		if(pipe(r->pipesLesser[i])==-1){
+			fprintf(stderr,"PROBLEMES DE CREATION DU PIPE %d\n",i);
+		}
+		if(pipe(&(r->pipesLesser[i][2]))==-1){
+			fprintf(stderr,"PROBLEMES DE CREATION DU PIPE %d\n",i);
+		}
+		pthread_mutex_init(&(r->accesPipe[i]),NULL);
+	}
+	return r;
+}
+
+//-*---------------------------------------------------------------------------
+
+void freePipeLesser(pipeLesser* p, int nbLesser){
+	pipeLesser pipe= *p;
+	
+	for(int i=0 ; i< nbLesser ; i++){
+		for(int j=0 ; j<4 ; j++){
+			close(pipe->pipesLesser[i][j]);
+		}
+		free(pipe->pipesLesser[i]);
+		pipe->pipesLesser[i]=NULL;
+		
+	}
+	
+	free(pipe->pipesLesser);
+	free(pipe->accesPipe);
+	
+	free(*p);
+	(*p)=NULL;
+
+}
 
 
 

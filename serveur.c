@@ -11,11 +11,23 @@
 #include "msg.h"
 #include "serveur2.h"
 #include "pile.h"
+#include "lesser.h"
 
 int main(){
 	printf("Lancement Serveur\n");
 //lecture config
 	tabConfigData serviceLesser=chargementData();
+	pipeLesser pipeAnonymes= initPipeLesser(serviceLesser->nbLesser);
+	//afficheTabConfigData(serviceLesser);
+	
+//creation lesser
+	for (int i=0 ; i< serviceLesser->nbLesser ; i++){
+		if(fork()==0){//si fils
+		mainLesser(pipeAnonymes->pipesLesser[i][1],pipeAnonymes->pipesLesser[i][2],i);
+			exit(0);//fin fils
+		}
+	}
+
 //creation msg
 	int msgidE= msgget(ftok("eServeur",1875),IPC_CREAT |DROIT);
 	int msgidS= msgget(ftok("sServeur",1875),IPC_CREAT |DROIT);
@@ -54,6 +66,8 @@ int main(){
 		dataThread d=initDataThread();
 		d->numThread=memo;
 		d->msgidSortie=msgidS;
+		d->configLesser = serviceLesser;
+		d->pipesLesser =pipeAnonymes;
 		if(pthread_create(&thd,NULL,gestionClient,(void*)d)!=0){
 			fprintf(stderr, "ECHEC DE CREATION THREAD\n");
 		}else{
@@ -76,6 +90,7 @@ int main(){
 	msgctl(msgidS,IPC_RMID,NULL);
 //destruction sema
 	semctl(sidAccesServeur,0,IPC_RMID,NULL);//0 pour le premier semaphore
+	freePipeLesser(&pipeAnonymes,serviceLesser->nbLesser);
 	freeTabConfigData(&serviceLesser);//free serviceLesser
 	return 0;
 }
