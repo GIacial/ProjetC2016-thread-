@@ -83,12 +83,21 @@ int main(){
 		fprintf(stderr, "ECHEC DE LA LECTURE \n" );
 	}
 	
+	//reponse alloc lesser 
 	if(read(deServeur,&service,sizeof(int))<0){
-		fprintf(stderr, "ECHEC DE LA LECTURE \n" );
+		fprintf(stderr, "ECHEC DE LA LECTURE DE LA REPONSE DE L'ALLOC \n" );
+	}
+
+	if(service != -1){
+		//reponse
+		if(read(deServeur,&service,sizeof(int))<0){
+			fprintf(stderr, "ECHEC DE LA LECTURE \n" );
+		}
+		printf("Resultat %d\n",service);		
+	}else{
+		printf("Le service n'est pas disponible pour l'instant \n");
 	}
 	
-
-	printf("Recu %d\n",service);
 
 	close(versServeur);
 	close(deServeur);

@@ -9,32 +9,40 @@
 #include <sys/sem.h>
 
 #include "msg.h"
-#include "serveur2.h"
+#include "configuration.h"
+#include "thread.h"
+#include "pipeLesser.h"
 #include "pile.h"
 #include "lesser.h"
 
 int main(){
-	printf("Lancement Serveur\n");
-//lecture config
-	tabConfigData serviceLesser=chargementData();
-	pipeLesser pipeAnonymes= initPipeLesser(serviceLesser->nbLesser);
-	//afficheTabConfigData(serviceLesser);
 	
-//creation lesser
-	for (int i=0 ; i< serviceLesser->nbLesser ; i++){
-		if(fork()==0){//si fils
-		mainLesser(pipeAnonymes->pipesLesser[i][1],pipeAnonymes->pipesLesser[i][2],i);
-			exit(0);//fin fils
-		}
-	}
-
-//creation msg
+	//creation msg
 	int msgidE= msgget(ftok("eServeur",1875),IPC_CREAT |DROIT);
 	int msgidS= msgget(ftok("sServeur",1875),IPC_CREAT |DROIT);
 	if(msgidE==-1 || msgidS==-1){
 		fprintf(stderr, "ECHEC LORS DE LA CREATION DES MSG\n" );
 		exit(0);
 	}
+	
+	printf("Lancement Serveur\n");
+	
+	// lecture du fichier de config	
+	tabConfigData serviceLesser=chargementData();
+	int** pipeAnonymes= initPipeLesser(serviceLesser->nbLesser);
+	
+	
+	// afficheTabConfigData(serviceLesser);
+	
+	// creation des lesser demons
+	for (int i=0 ; i< serviceLesser->nbLesser ; i++){
+		if(fork()==0){//si fils
+		mainLesser(pipeAnonymes[i][0],pipeAnonymes[i][3],i);
+			exit(0);//fin fils
+		}
+	}
+
+	
 	
 	//creation du semaphore qui protege
 	int sidAccesServeur=semget(ftok("AccesServeur",1875),1,IPC_CREAT|DROIT);
@@ -84,12 +92,15 @@ int main(){
 	}
 	printf("Fin Serveur\n");
 
-//destruction msg
+	//destruction des files de messages
 	freePile(&pileThread);
 	msgctl(msgidE,IPC_RMID,NULL);
 	msgctl(msgidS,IPC_RMID,NULL);
-//destruction sema
+
+	//destruction du semaphore
 	semctl(sidAccesServeur,0,IPC_RMID,NULL);//0 pour le premier semaphore
+	
+	// desallocation des structures de donnees
 	freePipeLesser(&pipeAnonymes,serviceLesser->nbLesser);
 	freeTabConfigData(&serviceLesser);//free serviceLesser
 	return 0;
