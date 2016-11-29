@@ -12,6 +12,8 @@
 
 #include "msg.h"
 
+//faire la fonction d'envoie de donnees
+
 int main(){
 
 //creation msg

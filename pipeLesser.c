@@ -32,8 +32,15 @@ int** initPipeLesser(int nbLesser){
 
 void freePipeLesser(int*** p, int nbLesser){
 	int** pipe= *p;
+	int signalFin = -1;
 	
 	for(int i=0 ; i< nbLesser ; i++){
+
+		if(write(pipe[i][1] ,&signalFin,sizeof(int))==-1){
+			fprintf(stderr, "ECHEC DE L'ENVOI DE LA FIN \n" );
+		}
+		sleep(3);//sleep pour que les lesser lisent la fin
+		//a changer TODO
 		for(int j=0 ; j<4 ; j++){
 			close(pipe[i][j]);
 		}
