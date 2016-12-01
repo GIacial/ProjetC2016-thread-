@@ -13,7 +13,7 @@ typedef struct dataThread{
 void* gestionClient(void* data);	//le code des threads
 dataThread initDataThread();		//creation de la structure de donnee des threads
 
-void echangeClientLesser(int deClient,int versClient , int lesserIn , int lesserOut);	//echange les donne entre client et lesser
+void echangeClientLesser(int deClient,int versClient , int lesserIn , int lesserOut, int numThread);	//echange les donne entre client et lesser
 
 #endif
 

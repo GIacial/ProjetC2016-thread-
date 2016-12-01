@@ -10,11 +10,12 @@ void mainLesser(int pipeIn, int pipeOut, int numFils){
 	printf("Coucou je suis le fils n%d\n",numFils);
 	
 	//read  du service 
-	int service = -1;
+	int service = -2;
 	if(read(pipeIn ,&service,sizeof(int))==-1){
 		fprintf(stderr, "ECHEC DE LECTURE SERVICE \n" );
 	}
 	while (service!=-1){
+	
 		//calcul
 		switch(service){
 			case 1 : Service1(pipeOut ,  pipeIn);
@@ -24,7 +25,9 @@ void mainLesser(int pipeIn, int pipeOut, int numFils){
 			break;
 		}
 	
-
+		if(read(pipeIn ,&service,sizeof(int))==-1){
+			printf(stderr, "ECHEC DE LECTURE SERVICE \n" );
+		}
 	
 	}
 }
@@ -49,6 +52,7 @@ void Service1(int pipeOut , int pipeIn){
 	
 	//calcul
 	float res = addition_Float(a,b);
+	fprintf(stderr,"Sercive 1 res %f+ %f =%f\n",a,b,res);
 	
 	//envoyer taille res
 	taille = (int)sizeof(float);

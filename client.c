@@ -14,6 +14,42 @@
 
 //faire la fonction d'envoie de donnees
 
+void serv1(int servIn, int servOut){
+	unsigned long tailleDonnees = sizeof(float)*2;
+	float tabFloat[2]; 
+	float res = 0.0;
+	//envoie de la taille de données
+	if(write(servIn ,&tailleDonnees,sizeof(unsigned long))==-1){
+			fprintf(stderr, "ECHEC DE L'ECRITURE \n" );
+	}
+	//envoie des données
+	printf("Entrez vos float à additionner\n"); 
+	scanf("%f", &tabFloat[0]);
+	scanf("%f", &tabFloat[1]);
+	if(write(servIn ,tabFloat,tailleDonnees)==-1){
+			fprintf(stderr, "ECHEC DE L'ECRITURE \n" );
+	}
+
+	//reception taille réponse
+	if(read(servOut,&tailleDonnees,sizeof(unsigned long))==-1){
+			fprintf(stderr, "ECHEC DE COMMUNICATION THREAD <- Lesser \n");
+			perror("Probleme:");
+	}
+
+
+	//reception réponse
+	if(read(servOut,&res,tailleDonnees)==-1){
+			fprintf(stderr, "ECHEC DE COMMUNICATION THREAD <- Lesser \n");
+			perror("Probleme:");
+	}
+
+	printf("Résultat du service 1 : %f\n", res);
+	
+}
+
+
+
+
 int main(){
 
 //creation msg
@@ -86,16 +122,18 @@ int main(){
 	}
 	
 	//reponse alloc lesser 
-	if(read(deServeur,&service,sizeof(int))<0){
+	int reponseAllocLesser=-1;
+	if(read(deServeur,&reponseAllocLesser,sizeof(int))<0){
 		fprintf(stderr, "ECHEC DE LA LECTURE DE LA REPONSE DE L'ALLOC \n" );
 	}
 
-	if(service != -1){
-		//reponse
-		if(read(deServeur,&service,sizeof(int))<0){
-			fprintf(stderr, "ECHEC DE LA LECTURE \n" );
-		}
-		printf("Resultat %d\n",service);		
+	if(reponseAllocLesser != -1){
+		switch(service){
+			case 1 : serv1(versServeur, deServeur);
+			break;
+			default : 
+			break;
+		}		
 	}else{
 		printf("Le service n'est pas disponible pour l'instant \n");
 	}

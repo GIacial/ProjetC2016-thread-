@@ -72,9 +72,9 @@ void* gestionClient(void* data){
 		for(int j = 0 ; j <  nbServiceLesser ; j++){
 			int serv = getService( d->configLesser->serviceLesser[i] , j) ;
 			if (serv == service){
-				fprintf(stderr, "Essai Prise \n");
+				fprintf(stderr, "Thread %d :Essai Prise \n",d->numThread);
 				pthread_mutex_lock(&(d->configLesser->accesTabService));
-				fprintf(stderr, "Prise \n");
+				fprintf(stderr, "Thread %d :Prise \n",d->numThread);
 				if (d->configLesser->serviceLibre[i]){
 					d->configLesser->serviceLibre[i] = false;
 					myLesser = i;
@@ -83,35 +83,38 @@ void* gestionClient(void* data){
 				
 				}
 				pthread_mutex_unlock(&(d->configLesser->accesTabService));
-				fprintf(stderr, "Unlock \n");
+				fprintf(stderr, "Thread %d :Unlock \n",d->numThread);
 			}
 		} 
 	}
+	
+		//envoi de reponse trouvé ou	pas
+	fprintf(stderr, "Thread %d :Ureponse serv libre \n",d->numThread);
+	if(write(versClient ,&myLesser,sizeof(int))==-1){
+		fprintf(stderr, "ECHEC DE LA REPONSE SERVICE DISPO \n" );
+	}
+		
 	if (myLesser != -1 ) {
 		//alloc lesser
+		fprintf(stderr, "Thread %d :alloc lesser \n",d->numThread);
 		if(write(d->pipesLesser[myLesser][1],&service,sizeof(int))==-1){
 			fprintf(stderr, "ECHEC DE COMMUNICATION THREAD -> LESSER \n");
 			perror("Probleme:");
 		}
+	
+	
+		//echange de donne
+		echangeClientLesser(deClient,versClient,d->pipesLesser[myLesser][1],d->pipesLesser[myLesser][2] ,d->numThread);
+	
+		//rend le lesser
+		fprintf(stderr, "Thread %d :UEssai prise \n",d->numThread);
+		pthread_mutex_lock(&(d->configLesser->accesTabService));
+		fprintf(stderr, "Thread %d :Prise \n",d->numThread);	
+		d->configLesser->serviceLibre[myLesser] = true;
+		pthread_mutex_unlock(&(d->configLesser->accesTabService));
+		fprintf(stderr, "Thread %d :Unlock \n",d->numThread);
+	
 	}
-	
-	//envoi de reponse trouvé ou	pas
-	if(write(versClient ,&myLesser,sizeof(int))==-1){
-		fprintf(stderr, "ECHEC DE LA REPONSE SERVICE DISPO \n" );
-	}
-	
-	//echange de donne
-	echangeClientLesser(deClient,versClient,d->pipesLesser[myLesser][1],d->pipesLesser[myLesser][2]);
-	
-	//rend le lesser
-	fprintf(stderr, "Essai Prise \n");
-	pthread_mutex_lock(&(d->configLesser->accesTabService));
-	fprintf(stderr, "Prise \n");	
-	d->configLesser->serviceLibre[myLesser] = true;
-	pthread_mutex_unlock(&(d->configLesser->accesTabService));
-	fprintf(stderr, "Unlock \n");
-	
-	
 	
 
 //fin	
@@ -121,7 +124,7 @@ void* gestionClient(void* data){
 	close(versClient);
 	close(deClient);
 	unlink(msg.mtext);//destruction du pipe
-	unlink(sortie);
+	unlink(sortie);//destruction pipe sortie
 	free(d);//desalloc de la struc car passer sans ref
 	return NULL;
 }
@@ -143,11 +146,12 @@ lesserIn est l'entrée du pipe pour envoyer au lesser
 lesserOut est la sortie du pipe du lesser
 VersClient est l'entrée du pipe pour envoyer au client
 */
-void echangeClientLesser(int deClient,int versClient , int lesserIn , int lesserOut)	{
+void echangeClientLesser(int deClient,int versClient , int lesserIn , int lesserOut, int numThread)	{
 //recup data
 	
 	//lecture taille donnees
 	unsigned long tailleDonnees =0;
+	fprintf(stderr,"Thread %d : demande taille donne \n",numThread);
 	if(read(deClient,&tailleDonnees,sizeof(unsigned long))==-1){
 		fprintf(stderr, "ECHEC DE COMMUNICATION THREAD <- Client \n");
 		perror("Probleme:");
@@ -155,23 +159,27 @@ void echangeClientLesser(int deClient,int versClient , int lesserIn , int lesser
 	
 	//lecture donnees
 	void* donnees = malloc (tailleDonnees);
+	fprintf(stderr,"Thread %d : lecture donne \n",numThread);
 	if(read(deClient,donnees,tailleDonnees)==-1){
 		fprintf(stderr, "ECHEC DE COMMUNICATION THREAD <- Client \n");
 		perror("Probleme:");
 	}
 	
 	//envoyer taille donnes
+	fprintf(stderr,"Thread %d : envoie taille donne \n",numThread);
 	if(write(lesserIn ,&tailleDonnees,sizeof(unsigned long))==-1){
 		fprintf(stderr, "ECHEC DE L'ECRITURE \n" );
 	}
 	
 	//envoyer donnees au lesser
+	fprintf(stderr,"Thread %d : envoie donne \n",numThread);
 	if(write(lesserIn ,donnees,tailleDonnees)==-1){
 		fprintf(stderr, "ECHEC DE L'ECRITURE \n" );
 	}
 	free(donnees);//free
 	
 	//recup taille solution
+	fprintf(stderr,"Thread %d : lecture taille reponse \n",numThread);
 	if(read(lesserOut,&tailleDonnees,sizeof(unsigned long))==-1){
 		fprintf(stderr, "ECHEC DE COMMUNICATION THREAD <- Lesser \n");
 		perror("Probleme:");
@@ -179,20 +187,26 @@ void echangeClientLesser(int deClient,int versClient , int lesserIn , int lesser
 	
 	//recup solution
 	void* solution = malloc (tailleDonnees);
-	if(read(lesserOut,&solution,tailleDonnees)==-1){
+	fprintf(stderr,"Thread %d : lecture solution \n",numThread);
+	if(read(lesserOut,solution,tailleDonnees)==-1){
 		fprintf(stderr, "ECHEC DE COMMUNICATION THREAD <- LESSER \n");
 		perror("Probleme:");
 	}
 	
 	//envoi la taille de la solution
+	fprintf(stderr,"Thread %d : envoie taille solution\n",numThread);
 	if(write(versClient ,&tailleDonnees,sizeof(unsigned long))==-1){
 		fprintf(stderr, "ECHEC DE L'ECRITURE \n" );
 	}
 	
 	//envoi de la solution du service
-	if(write(versClient ,&donnees,tailleDonnees)==-1){
+	fprintf(stderr,"Thread %d : envoi solution \n",numThread);
+	if(write(versClient ,solution,tailleDonnees)==-1){
 		fprintf(stderr, "ECHEC DE L'ECRITURE \n" );
 	}
+	
+	fprintf(stderr, "essai free solution \n" );
 	free(solution);
+	fprintf(stderr, "free solution\n" );
 }
 
