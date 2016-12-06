@@ -8,7 +8,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <fcntl.h> //open
-#include <stdbool.h>
 
 #include "thread.h"
 #include "msg.h"
@@ -65,34 +64,9 @@ void* gestionClient(void* data){
 	
 	//calcul
 	printf("Thread %d : service %d\n",d->numThread,service);
-	
-	int myLesser = -1;
-	for(int i = 0 ; i < d->configLesser->nbLesser ; i++){
-		int nbServiceLesser= getNbService( d->configLesser->serviceLesser[i] ) ;
-		for(int j = 0 ; j <  nbServiceLesser ; j++){
-			int serv = getService( d->configLesser->serviceLesser[i] , j) ;
-			if (serv == service){
-				fprintf(stderr, "Thread %d :Essai Prise \n",d->numThread);
-				pthread_mutex_lock(&(d->configLesser->accesTabService));
-				fprintf(stderr, "Thread %d :Prise \n",d->numThread);
-				if (d->configLesser->serviceLibre[i]){
-					d->configLesser->serviceLibre[i] = false;
-					myLesser = i;
-					j =  nbServiceLesser ; 
-					i = d->configLesser->nbLesser-1; 
-				
-				}
-				pthread_mutex_unlock(&(d->configLesser->accesTabService));
-				fprintf(stderr, "Thread %d :Unlock \n",d->numThread);
-			}
-		} 
-	}
-	
-		//envoi de reponse trouvé ou	pas
-	fprintf(stderr, "Thread %d :Ureponse serv libre \n",d->numThread);
-	if(write(versClient ,&myLesser,sizeof(int))==-1){
-		fprintf(stderr, "ECHEC DE LA REPONSE SERVICE DISPO \n" );
-	}
+
+	//choix du lesser	
+	int myLesser = threadChoixLesser(d,versClient,service);
 		
 	if (myLesser != -1 ) {
 		//alloc lesser
@@ -104,10 +78,16 @@ void* gestionClient(void* data){
 	
 	
 		//echange de donne
-		echangeClientLesser(deClient,versClient,d->pipesLesser[myLesser][1],d->pipesLesser[myLesser][2] ,d->numThread);
+		switch (service){
+			case 3 : echangeClientLesser(versClient,d->pipesLesser[myLesser][2] ,d->numThread);	//cas sans donne de client
+			break;
+			default : receptionClient(deClient,versClient,d->pipesLesser[myLesser][1],d->pipesLesser[myLesser][2] ,d->numThread);	//cas avec donne client
+			break;
+		}
+		
 	
 		//rend le lesser
-		fprintf(stderr, "Thread %d :UEssai prise \n",d->numThread);
+		fprintf(stderr, "Thread %d :Essai prise \n",d->numThread);
 		pthread_mutex_lock(&(d->configLesser->accesTabService));
 		fprintf(stderr, "Thread %d :Prise \n",d->numThread);	
 		d->configLesser->serviceLibre[myLesser] = true;
@@ -139,15 +119,10 @@ dataThread initDataThread(){
 	r->pipesLesser = NULL;
 	return r;
 }
-
 //----------------------------------------------------------------------------------------------
-/*
-lesserIn est l'entrée du pipe pour envoyer au lesser
-lesserOut est la sortie du pipe du lesser
-VersClient est l'entrée du pipe pour envoyer au client
-*/
-void echangeClientLesser(int deClient,int versClient , int lesserIn , int lesserOut, int numThread)	{
-//recup data
+
+void receptionClient(int deClient,int versClient , int lesserIn , int lesserOut, int numThread){
+	//recup data
 	
 	//lecture taille donnees
 	unsigned long tailleDonnees =0;
@@ -178,6 +153,18 @@ void echangeClientLesser(int deClient,int versClient , int lesserIn , int lesser
 	}
 	free(donnees);//free
 	
+	echangeClientLesser(versClient ,  lesserOut, numThread);
+	
+}
+//----------------------------------------------------------------------------------------------
+/*
+lesserIn est l'entrée du pipe pour envoyer au lesser
+lesserOut est la sortie du pipe du lesser
+VersClient est l'entrée du pipe pour envoyer au client
+*/
+void echangeClientLesser(int versClient , int lesserOut, int numThread)	{
+	
+	unsigned long tailleDonnees =0;
 	//recup taille solution
 	fprintf(stderr,"Thread %d : lecture taille reponse \n",numThread);
 	if(read(lesserOut,&tailleDonnees,sizeof(unsigned long))==-1){
@@ -210,3 +197,36 @@ void echangeClientLesser(int deClient,int versClient , int lesserIn , int lesser
 	fprintf(stderr, "free solution\n" );
 }
 
+
+//-------------------------------------------------------------------------------------------------------------------------------------------
+int  threadChoixLesser(dataThread d, int versClient , int service){
+	int myLesser = -1;
+	for(int i = 0 ; i < d->configLesser->nbLesser ; i++){
+		int nbServiceLesser= getNbService( d->configLesser->serviceLesser[i] ) ;
+		for(int j = 0 ; j <  nbServiceLesser ; j++){
+			int serv = getService( d->configLesser->serviceLesser[i] , j) ;
+			if (serv == service){
+				fprintf(stderr, "Thread %d :Essai Prise \n",d->numThread);
+				pthread_mutex_lock(&(d->configLesser->accesTabService));
+				fprintf(stderr, "Thread %d :Prise \n",d->numThread);
+				if (d->configLesser->serviceLibre[i]){
+					d->configLesser->serviceLibre[i] = false;
+					myLesser = i;
+					j =  nbServiceLesser ; 
+					i = d->configLesser->nbLesser-1; 
+				
+				}
+				pthread_mutex_unlock(&(d->configLesser->accesTabService));
+				fprintf(stderr, "Thread %d :Unlock \n",d->numThread);
+			}
+		} 
+	}
+	
+		//envoi de reponse trouvé ou	pas
+	fprintf(stderr, "Thread %d :Ureponse serv libre \n",d->numThread);
+	if(write(versClient ,&myLesser,sizeof(int))==-1){
+		fprintf(stderr, "ECHEC DE LA REPONSE SERVICE DISPO \n" );
+	}
+
+	return myLesser;
+}

@@ -1,6 +1,8 @@
 #ifndef INCLUDED_THREAD_H
 #define INCLUDED_THREAD_H
 
+
+#include <stdbool.h>
 #include "configuration.h"
 
 typedef struct dataThread{
@@ -13,7 +15,9 @@ typedef struct dataThread{
 void* gestionClient(void* data);	//le code des threads
 dataThread initDataThread();		//creation de la structure de donnee des threads
 
-void echangeClientLesser(int deClient,int versClient , int lesserIn , int lesserOut, int numThread);	//echange les donne entre client et lesser
+void receptionClient(int deClient,int versClient , int lesserIn , int lesserOut, int numThread);	//echange les donne entre client et le thread puis la communication normal
+void echangeClientLesser(int versClient , int lesserOut, int numThread);	//echange la solution entre le thread et le lesser puis il envoie la reponse au client
+int  threadChoixLesser(dataThread d, int versClient, int service);
 
 #endif
 

@@ -6,15 +6,15 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>	//msg
-#include <sys/sem.h>   //sem    
-#include <fcntl.h> //open
-
+#include <sys/sem.h>   	//sem    
+#include <fcntl.h> 		//open
+#include <stdio_ext.h>	//__fpurge
 
 #include "msg.h"
 
-//faire la fonction d'envoie de donnees
 
-void serv1(int servIn, int servOut){
+
+void serv1(int servIn, int servOut){				//somme de 2 float
 	unsigned long tailleDonnees = sizeof(float)*2;
 	float tabFloat[2]; 
 	float res = 0.0;
@@ -47,11 +47,82 @@ void serv1(int servIn, int servOut){
 	
 }
 
+//------------------------------------------------------------------------------------------------------------------------------------------
+void serv2(int servIn, int servOut){				//somme de float d'une matrice
+
+	
+	int largeur ,hauteur;
+	printf("Largeur de la matrice\n"); 
+	scanf("%d", &largeur);
+	
+	printf("Hauteur de la matrice\n");
+	scanf("%d", &hauteur);
+	
+	unsigned long tailleDonnees = (sizeof(float) * (unsigned long)largeur * (unsigned long)hauteur) + sizeof(int) * 2;
+	
+	float** matrice = (float**)malloc (sizeof(float*)* (unsigned long)hauteur);
+	for(int i=0 ; i<hauteur ; i++){
+		matrice[i]=malloc (sizeof(float)* (unsigned long)largeur);
+		for(int j =0 ; j<largeur ; j++){
+			printf("M [%d] [%d] =",i,j);
+			scanf("%f",&matrice[i][j]);
+		}
+	}
+	__fpurge(stdin);	//vide le buffer
+	
+	for (int i= 0 ; i<hauteur ; i++){
+		for(int j=0 ; j<largeur ; j++){
+			fprintf(stderr, "M[%d][%d] = %f \n",i,j,matrice[i][j] );
+		}
+	}
+	
+	//envoie de la taille de données
+	if(write(servIn ,&tailleDonnees,sizeof(unsigned long))==-1){
+		fprintf(stderr, "ECHEC DE L'ECRITURE \n" );
+	}
+	
+	//envoie des données
+	
+	if(write(servIn ,&largeur,sizeof(int))==-1){
+		fprintf(stderr, "ECHEC DE L'ECRITURE \n" );
+	}
+	if(write(servIn ,&hauteur,sizeof(int))==-1){
+		fprintf(stderr, "ECHEC DE L'ECRITURE \n" );
+	}
+	for(int i=0 ; i<hauteur ; i++){
+		if(write(servIn ,matrice[i],sizeof(float)*(unsigned long)largeur)==-1){
+			fprintf(stderr, "ECHEC DE L'ECRITURE \n" );
+		}
+	}
+	
+	//free matrice
+	for(int i =0 ; i < hauteur ; i++){
+		free(matrice[i]);
+		matrice[i] = NULL;
+	}
+	free(matrice);
+
+	//reception taille réponse
+	if(read(servOut,&tailleDonnees,sizeof(unsigned long))==-1){
+			fprintf(stderr, "ECHEC DE COMMUNICATION THREAD <- Lesser \n");
+			perror("Probleme:");
+	}
 
 
+	//reception réponse
+	float res ;
+	if(read(servOut,&res,tailleDonnees)==-1){
+			fprintf(stderr, "ECHEC DE COMMUNICATION THREAD <- Lesser \n");
+			perror("Probleme:");
+	}
+
+	printf("Résultat du service 2 : %f\n", res);
+	
+}
+//------------------------------------------------------------------------------------------------------------------------------------------
 
 int main(){
-
+	
 //creation msg
 	int msgidE= msgget(ftok("eServeur",1875),IPC_CREAT |DROIT);
 	int msgidS= msgget(ftok("sServeur",1875),IPC_CREAT|DROIT);
@@ -60,6 +131,7 @@ int main(){
 		exit(0);
 	}
 	
+//creation du semaphore de connexion au serveur
 	int sidAccesServeur=semget(ftok("AccesServeur",1875),1,IPC_CREAT|DROIT);
 	if(sidAccesServeur==-1){
 		fprintf(stderr, "ECHEC LORS DE LA CREATION DE LA PROTECTION DES FILES DE MESSAGES\n" );
@@ -131,7 +203,9 @@ int main(){
 		switch(service){
 			case 1 : serv1(versServeur, deServeur);
 			break;
-			default : 
+			case 2 : serv2(versServeur, deServeur);
+			break;
+			default : printf("Le service n'est pas encore coder\n");
 			break;
 		}		
 	}else{
